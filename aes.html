@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AES Crypto Tool</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Memuat Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Animasi kustom untuk Toast Notification */
+    #toast {
+      transition: all 0.3s ease-in-out;
+      transform: translateX(120%);
+      opacity: 0;
+    }
+    #toast.show {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 font-sans p-4 md:p-8">
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-xl hidden">
+    <div id="toast-icon"></div>
+    <span id="toast-message" class="font-medium text-sm"></span>
+  </div>
+
+  <div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="bg-indigo-600 p-3 rounded-2xl text-white shadow-lg shadow-indigo-200">
+          <i data-lucide="shield" class="w-8 h-8"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold text-slate-800">AES Crypto Tool</h1>
+          <p class="text-slate-500 text-sm">Server-Compatible Encryption Utility</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex items-center gap-2 border-r border-slate-200 pr-3 mr-1">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Mode:</span>
+          <span class="text-xs font-bold text-indigo-600 px-1">AES-256-GCM</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Encoding:</span>
+          <select id="encoding" class="bg-transparent outline-none text-xs font-bold text-indigo-600 cursor-pointer">
+            <option value="hex">HEX (iv:tag:data)</option>
+            <option value="base64">Base64 (iv:tag:data)</option>
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <!-- Key Section -->
+    <section class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <label class="text-sm font-bold text-slate-700 flex items-center gap-2">
+          <i data-lucide="lock" class="w-4 h-4 text-indigo-500"></i>
+          Secret Key
+        </label>
+        <span id="key-saved-badge" class="hidden text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+          Stored Key Active
+        </span>
+      </div>
+      <div class="flex flex-col md:flex-row gap-3">
+        <input 
+          type="password" 
+          id="secret-key"
+          placeholder="Enter your secret key (32 bytes recommended)..."
+          class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all font-mono"
+        />
+        <div class="flex gap-2">
+          <button id="btn-save-key" class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl font-semibold transition-colors shadow-md shadow-indigo-100">
+            <i data-lucide="save" class="w-[18px] h-[18px]"></i>
+            <span>Save Key</span>
+          </button>
+          <button id="btn-clear-key" class="p-3 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all" title="Wipe key from local storage">
+            <i data-lucide="trash-2" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Grid Sections -->
+    <div class="grid md:grid-cols-2 gap-6 items-start">
+      
+      <!-- Plaintext Section -->
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-full">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-bold text-slate-700">Plaintext Input</h2>
+          <button id="btn-copy-raw" class="p-2 text-slate-400 hover:text-indigo-600 transition-colors">
+            <i data-lucide="copy" class="w-[18px] h-[18px]"></i>
+          </button>
+        </div>
+        <textarea 
+          id="raw-text"
+          class="w-full h-48 bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all resize-none text-slate-600 font-mono text-sm mb-4"
+          placeholder="Enter text to encrypt..."
+        ></textarea>
+        <button id="btn-encrypt" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all transform active:scale-[0.98] shadow-lg shadow-indigo-100">
+          <i data-lucide="lock" class="w-5 h-5"></i>
+          Encrypt (iv:tag:data)
+        </button>
+      </div>
+
+      <!-- Ciphertext Section -->
+      <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-full">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-bold text-slate-700 flex items-center gap-2">
+            Ciphertext Output
+            <span id="encoding-label" class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md uppercase">hex</span>
+          </h2>
+          <button id="btn-copy-encrypted" class="p-2 text-slate-400 hover:text-indigo-600 transition-colors">
+            <i data-lucide="copy" class="w-[18px] h-[18px]"></i>
+          </button>
+        </div>
+        <textarea 
+          id="encrypted-text"
+          class="w-full h-48 bg-slate-800 border border-slate-700 rounded-2xl p-4 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all resize-none text-indigo-300 font-mono text-xs mb-4"
+          placeholder="Paste your iv:tag:data string here..."
+        ></textarea>
+        <button id="btn-decrypt" class="w-full py-4 border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all transform active:scale-[0.98]">
+          <i data-lucide="unlock" class="w-5 h-5"></i>
+          Decrypt Ciphertext
+        </button>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-12 text-center text-slate-400 text-sm">
+      <p>Matching Node.js crypto logic. All encryption happens locally.</p>
+      <div class="mt-2 flex flex-wrap items-center justify-center gap-4 text-[10px] font-bold uppercase tracking-widest">
+        <span class="flex items-center gap-1 opacity-60"><i data-lucide="refresh-cw" class="w-3 h-3"></i> AES-256-GCM</span>
+        <span class="flex items-center gap-1 opacity-60"><i data-lucide="shield" class="w-3 h-3"></i> Compatibility: Node.js</span>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // DOM Elements
+    const keyInput = document.getElementById('secret-key');
+    const encodingSelect = document.getElementById('encoding');
+    const rawTextInput = document.getElementById('raw-text');
+    const encryptedTextInput = document.getElementById('encrypted-text');
+    const keySavedBadge = document.getElementById('key-saved-badge');
+    const encodingLabel = document.getElementById('encoding-label');
+    
+    // Toast Elements
+    const toast = document.getElementById('toast');
+    const toastIcon = document.getElementById('toast-icon');
+    const toastMessage = document.getElementById('toast-message');
+    let toastTimeout;
+
+    // Initialization
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedKey = localStorage.getItem('default_aes_key');
+      if (savedKey) {
+        keyInput.value = savedKey;
+        keySavedBadge.classList.remove('hidden');
+      }
+    });
+
+    encodingSelect.addEventListener('change', (e) => {
+      encodingLabel.textContent = e.target.value;
+    });
+
+    // Toast Logic
+    function showStatus(msg, type = 'info') {
+      clearTimeout(toastTimeout);
+      
+      toastMessage.textContent = msg;
+      
+      // Reset classes
+      toast.className = 'fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-xl';
+      
+      if (type === 'success') {
+        toast.classList.add('bg-emerald-500', 'text-white');
+        toastIcon.innerHTML = `<i data-lucide="check-circle" class="w-[18px] h-[18px]"></i>`;
+      } else if (type === 'error') {
+        toast.classList.add('bg-rose-500', 'text-white');
+        toastIcon.innerHTML = `<i data-lucide="alert-triangle" class="w-[18px] h-[18px]"></i>`;
+      } else {
+        toast.classList.add('bg-slate-800', 'text-white');
+        toastIcon.innerHTML = `<i data-lucide="check-circle" class="w-[18px] h-[18px]"></i>`;
+      }
+
+      lucide.createIcons({ root: toastIcon });
+      
+      // Trigger animation
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('show'), 10);
+
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.classList.add('hidden'), 300);
+      }, 5000);
+    }
+
+    // Key Management
+    document.getElementById('btn-save-key').addEventListener('click', () => {
+      const key = keyInput.value;
+      if (!key) {
+        showStatus('Key cannot be empty!', 'error');
+        return;
+      }
+      localStorage.setItem('default_aes_key', key);
+      keySavedBadge.classList.remove('hidden');
+      showStatus('Key saved to local storage', 'success');
+    });
+
+    document.getElementById('btn-clear-key').addEventListener('click', () => {
+      localStorage.removeItem('default_aes_key');
+      keyInput.value = '';
+      keySavedBadge.classList.add('hidden');
+      showStatus('Key removed from local storage', 'info');
+    });
+
+    // Utilities
+    const bufferToHex = (buffer) => {
+      return Array.from(new Uint8Array(buffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    };
+
+    const hexToBuffer = (hex) => {
+      const cleanHex = hex.trim().replace(/[^0-9a-fA-F]/g, '');
+      if (cleanHex.length % 2 !== 0) throw new Error('Invalid hex length');
+      const bytes = new Uint8Array(cleanHex.length / 2);
+      for (let i = 0; i < cleanHex.length; i += 2) {
+        bytes[i / 2] = parseInt(cleanHex.substr(i, 2), 16);
+      }
+      return bytes.buffer;
+    };
+
+    const bufferToBase64 = (buffer) => {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return window.btoa(binary);
+    };
+
+    const base64ToBuffer = (base64) => {
+      const binaryString = window.atob(base64.trim());
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes.buffer;
+    };
+
+    const getCryptoKey = async (passphrase) => {
+      const encoder = new TextEncoder();
+      let keyData = encoder.encode(passphrase);
+      
+      if (keyData.length !== 32) {
+        const hash = await window.crypto.subtle.digest('SHA-256', keyData);
+        keyData = new Uint8Array(hash);
+      }
+
+      return window.crypto.subtle.importKey(
+        'raw',
+        keyData,
+        { name: 'AES-GCM' },
+        false,
+        ['encrypt', 'decrypt']
+      );
+    };
+
+    // Encrypt Logic
+    document.getElementById('btn-encrypt').addEventListener('click', async () => {
+      const key = keyInput.value;
+      const rawText = rawTextInput.value;
+      const encoding = encodingSelect.value;
+
+      try {
+        if (!key || !rawText) {
+          showStatus('Key and Raw Text are required', 'error');
+          return;
+        }
+
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const cryptoKey = await getCryptoKey(key);
+        const encoder = new TextEncoder();
+        
+        const encryptedBuffer = await window.crypto.subtle.encrypt(
+          { name: 'AES-GCM', iv: iv, tagLength: 128 },
+          cryptoKey,
+          encoder.encode(rawText)
+        );
+
+        const fullBuffer = new Uint8Array(encryptedBuffer);
+        const tag = fullBuffer.slice(-16);
+        const data = fullBuffer.slice(0, -16);
+
+        let result;
+        if (encoding === 'hex') {
+          result = `${bufferToHex(iv)}:${bufferToHex(tag)}:${bufferToHex(data)}`;
+        } else {
+          result = `${bufferToBase64(iv)}:${bufferToBase64(tag)}:${bufferToBase64(data)}`;
+        }
+        
+        encryptedTextInput.value = result;
+        showStatus('Encryption successful!', 'success');
+      } catch (err) {
+        console.error(err);
+        showStatus('Encryption failed: ' + err.message, 'error');
+      }
+    });
+
+    // Decrypt Logic
+    document.getElementById('btn-decrypt').addEventListener('click', async () => {
+      const key = keyInput.value;
+      const encryptedText = encryptedTextInput.value;
+      const encoding = encodingSelect.value;
+
+      try {
+        if (!key || !encryptedText) {
+          showStatus('Key and Encrypted Text are required', 'error');
+          return;
+        }
+
+        const trimmedInput = encryptedText.trim();
+        const parts = trimmedInput.split(':').map(p => p.trim());
+        
+        if (parts.length !== 3) {
+          showStatus('Format error: Expected iv:tag:data', 'error');
+          return;
+        }
+
+        if (encoding === 'hex') {
+          if (parts[0].length !== 24) {
+            showStatus(`IV HEX must be 24 chars (12 bytes). Found: ${parts[0].length}`, 'error');
+            return;
+          }
+          if (parts[1].length !== 32) {
+            showStatus(`Tag HEX must be 32 chars (16 bytes). Found: ${parts[1].length}`, 'error');
+            return;
+          }
+        }
+
+        let iv, tag, data;
+        try {
+          if (encoding === 'hex') {
+            iv = new Uint8Array(hexToBuffer(parts[0]));
+            tag = new Uint8Array(hexToBuffer(parts[1]));
+            data = new Uint8Array(hexToBuffer(parts[2]));
+          } else {
+            iv = new Uint8Array(base64ToBuffer(parts[0]));
+            tag = new Uint8Array(base64ToBuffer(parts[1]));
+            data = new Uint8Array(base64ToBuffer(parts[2]));
+          }
+        } catch (e) {
+          showStatus('Decoding error: Invalid ' + encoding.toUpperCase() + ' data format.', 'error');
+          return;
+        }
+
+        if (iv.length !== 12) {
+          showStatus('Internal Error: IV length must be 12 bytes.', 'error');
+          return;
+        }
+        if (tag.length !== 16) {
+          showStatus('Internal Error: Tag length must be 16 bytes.', 'error');
+          return;
+        }
+
+        const combined = new Uint8Array(data.length + tag.length);
+        combined.set(data);
+        combined.set(tag, data.length);
+
+        const cryptoKey = await getCryptoKey(key);
+        
+        const decryptedBuffer = await window.crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: iv, tagLength: 128 },
+          cryptoKey,
+          combined
+        );
+
+        const decoder = new TextDecoder();
+        rawTextInput.value = decoder.decode(decryptedBuffer);
+        showStatus('Decryption successful!', 'success');
+      } catch (err) {
+        console.error(err);
+        const errorMsg = err.name === 'OperationError' 
+          ? 'Decryption failed. Authentication failed (wrong key, wrong encoding, or data mismatch).' 
+          : 'Error: ' + err.message;
+        showStatus(errorMsg, 'error');
+      }
+    });
+
+    // Copy to Clipboard
+    const copyToClipboard = (text) => {
+      if (!text) return;
+      const tempInput = document.createElement("textarea");
+      tempInput.value = text;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand("copy");
+      document.body.removeChild(tempInput);
+      showStatus('Copied to clipboard!', 'info');
+    };
+
+    document.getElementById('btn-copy-raw').addEventListener('click', () => copyToClipboard(rawTextInput.value));
+    document.getElementById('btn-copy-encrypted').addEventListener('click', () => copyToClipboard(encryptedTextInput.value));
+    
+  </script>
+</body>
+</html>
